@@ -1,0 +1,102 @@
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include <UniversalTelegramBot.h>
+
+#define WIFI_SSID "sc-5c30"
+#define WIFI_PASSWORD "santiago1818"
+#define BOT_TOKEN "7149655372:AAGsAOXdozI89VClMO0PfFhxyNSEUa876Xg"
+
+const unsigned long tiempo = 1000; 
+WiFiClientSecure secured_client;
+UniversalTelegramBot bot(BOT_TOKEN, secured_client);
+unsigned long tiempoAnterior; 
+
+const int led12 = 13; 
+int estadoLed12 = 0; 
+int inicio = 1;
+String chat_id;
+#define ID_Chat "7129929559" 
+
+void mensajesNuevos(int numerosMensajes) {
+  for (int i = 0; i < numerosMensajes; i++) {
+    String chat_id = bot.messages[i].chat_id;
+    String text = bot.messages[i].text;
+    Serial.println("Mensaje recibido: " + text);
+    
+    
+    if (text == "Luz1on") {
+      Serial.println("Encendiendo Luz 1");
+      digitalWrite(led12, LOW); 
+      estadoLed12 = 1;
+      bot.sendMessage(chat_id, "Luz 1 encendida", "");
+    }
+
+    if (text == "Luz1off") {
+      Serial.println("Apagando Luz 1");
+      estadoLed12 = 0;
+      digitalWrite(led12, HIGH); 
+      bot.sendMessage(chat_id, "Luz 1 apagada", "");
+    }
+
+    // Estado de las luces
+    if (text == "Estado") {
+      Serial.println("Consultando estado de las luces");
+      if (estadoLed12) {
+        bot.sendMessage(chat_id, "Luz 1 encendida", "");
+      } else {
+        bot.sendMessage(chat_id, "Luz 1 apagada", "");
+      }
+    }
+
+    if (text == "Ayuda") {
+      String ayuda = "Bienvenido al sistema de control de luces con ESP32.\n";
+      ayuda += "Estas son tus opciones:\n\n";
+      ayuda += "Luz1on: para encender la Luz 1\n";
+      ayuda += "Luz1off: para apagar la Luz 1\n";
+      ayuda += "Estado: devuelve el estado actual de las luces\n";
+      ayuda += "Ayuda: imprime este menú\n";
+      ayuda += "Recuerda, el sistema distingue entre mayúsculas y minúsculas.\n";
+      bot.sendMessage(chat_id, ayuda, "");
+    }
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(led12, OUTPUT); 
+
+  digitalWrite(led12, HIGH); 
+
+  /
+  Serial.print("Conectando a la red ");
+  Serial.print(WIFI_SSID);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  secured_client.setCACert(TELEGRAM_CERTIFICATE_ROOT); 
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.print(".");
+    delay(500);
+  }
+  Serial.print("\nConectado a la red Wi-Fi. Dirección IP: ");
+  Serial.println(WiFi.localIP());
+
+  if (inicio == 1) {
+    Serial.println("Sistema preparado");
+    bot.sendMessage(ID_Chat, "Sistema preparado!!!, escribe Ayuda para ver las opciones", ""); 
+    inicio = 0;
+  }
+}
+
+void loop() {
+  
+  if (millis() - tiempoAnterior > tiempo) {
+    int numerosMensajes = bot.getUpdates(bot.last_message_received + 1);
+
+    while (numerosMensajes) {
+      Serial.println("Comando recibido");
+      mensajesNuevos(numerosMensajes);
+      numerosMensajes = bot.getUpdates(bot.last_message_received + 1);
+    }
+
+    tiempoAnterior = millis();
+  }
+}
